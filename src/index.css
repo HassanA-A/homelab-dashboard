@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body {
+    background-color: #0A0A0B;
+    color: #EAEAF5;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(110, 86, 207, 0.3);
+    color: #EAEAF5;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-raised border border-border-default rounded-lg;
+  }
+
+  .card-hover {
+    @apply card transition-colors duration-150 hover:border-border-strong hover:bg-bg-card;
+  }
+
+  .btn-primary {
+    @apply bg-accent-purple hover:bg-accent-purple-hover text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors duration-150 flex items-center gap-1.5;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border border-border-default hover:border-border-strong hover:bg-bg-hover text-text-secondary hover:text-text-primary text-sm font-medium px-3 py-1.5 rounded-md transition-all duration-150 flex items-center gap-1.5;
+  }
+
+  .btn-danger {
+    @apply bg-transparent border border-border-default hover:border-status-red hover:bg-status-red-dim text-text-secondary hover:text-status-red text-sm font-medium px-3 py-1.5 rounded-md transition-all duration-150 flex items-center gap-1.5;
+  }
+
+  .icon-btn {
+    @apply w-7 h-7 rounded-md border border-border-default bg-transparent flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-hover hover:border-border-strong transition-all duration-150 cursor-pointer;
+  }
+
+  .icon-btn-danger {
+    @apply icon-btn hover:text-status-red hover:border-status-red hover:bg-status-red-dim;
+  }
+
+  .icon-btn-success {
+    @apply icon-btn hover:text-status-green hover:border-status-green hover:bg-status-green-dim;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-sm text-text-tertiary hover:text-text-secondary hover:bg-bg-hover transition-all duration-150 cursor-pointer select-none relative;
+  }
+
+  .nav-item-active {
+    @apply nav-item text-[#C4B5FD] bg-accent-purple-dim hover:bg-accent-purple-dim hover:text-[#C4B5FD];
+  }
+
+  .status-dot {
+    @apply w-1.5 h-1.5 rounded-full flex-shrink-0 inline-block;
+  }
+
+  .metric-label {
+    @apply text-xs text-text-tertiary font-medium uppercase tracking-wider;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-2xs font-medium;
+  }
+
+  .badge-green  { @apply badge bg-status-green-dim text-status-green; }
+  .badge-red    { @apply badge bg-status-red-dim text-status-red; }
+  .badge-amber  { @apply badge bg-status-amber-dim text-status-amber; }
+  .badge-blue   { @apply badge bg-status-blue-dim text-status-blue; }
+  .badge-purple { @apply badge bg-accent-purple-dim text-[#A78BFA]; }
+  .badge-gray   { @apply badge bg-bg-active text-text-tertiary; }
+
+  .section-header {
+    @apply text-2xs font-medium text-text-muted uppercase tracking-widest px-2 mt-3 mb-1 first:mt-0;
+  }
+
+  .progress-bar {
+    @apply h-[3px] rounded-full bg-bg-active overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-700;
+  }
+
+  .table-row {
+    @apply border-b border-border-subtle last:border-b-0 hover:bg-bg-card transition-colors duration-100;
+  }
+
+  .table-cell {
+    @apply px-3 py-2.5 text-sm;
+  }
+
+  .table-head {
+    @apply px-3 py-2 text-2xs font-medium text-text-muted uppercase tracking-wider;
+  }
+}
