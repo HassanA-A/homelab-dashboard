@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getSystemMetrics } from '@/services/api'
 import {
-  getMockSystemMetrics,
   getMockModels,
   getMockContainers,
   getMockInfra,
@@ -12,10 +12,7 @@ const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 export function useSystemMetrics() {
   return useQuery({
     queryKey: ['system-metrics'],
-    queryFn: async () => {
-      await delay(200)
-      return getMockSystemMetrics()
-    },
+    queryFn: getSystemMetrics,
     refetchInterval: 3000,
   })
 }

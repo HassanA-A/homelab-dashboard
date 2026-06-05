@@ -1,19 +1,5 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface SystemMetrics {
-  cpu: { usage: number; cores: number; model: string; temp: number }
-  ram: { used: number; total: number; percent: number }
-  gpu: { usage: number; vramUsed: number; vramTotal: number; model: string; temp: number }
-  disk: { used: number; total: number; percent: number; readSpeed: number; writeSpeed: number }
-  network: { uploadMbps: number; downloadMbps: number; interface: string }
-  tailscale: { connected: boolean; ip: string; peers: number; hostname: string }
-  uptime: number // seconds
-  os: string
-  hostname: string
-  kernelVersion: string
-  lastUpdated: Date
-}
-
 export interface OllamaModel {
   id: string
   name: string
@@ -64,22 +50,6 @@ export interface Agent {
 
 const jitter = (base: number, range: number) =>
   Math.min(100, Math.max(0, base + (Math.random() - 0.5) * range))
-
-export function getMockSystemMetrics(): SystemMetrics {
-  return {
-    cpu: { usage: jitter(24, 8), cores: 16, model: 'AMD Ryzen 9 5950X', temp: jitter(62, 6) },
-    ram: { used: 47.2, total: 64, percent: jitter(73, 4) },
-    gpu: { usage: jitter(8, 12), vramUsed: 4.2, vramTotal: 24, model: 'NVIDIA RTX 4090', temp: jitter(55, 5) },
-    disk: { used: 2400, total: 4000, percent: 61, readSpeed: jitter(380, 40), writeSpeed: jitter(220, 30) },
-    network: { uploadMbps: jitter(42, 10), downloadMbps: jitter(128, 20), interface: 'eth0' },
-    tailscale: { connected: true, ip: '100.88.12.42', peers: 3, hostname: 'homelab' },
-    uptime: 3 * 86400 + 14 * 3600 + 22 * 60,
-    os: 'Ubuntu 24.04 LTS',
-    hostname: 'homelab.local',
-    kernelVersion: '6.8.0-45-generic',
-    lastUpdated: new Date(),
-  }
-}
 
 export function getMockModels(): OllamaModel[] {
   return [
