@@ -13,19 +13,6 @@ export interface OllamaModel {
   parameters: string
 }
 
-export interface Container {
-  id: string
-  name: string
-  image: string
-  status: 'running' | 'stopped' | 'restarting' | 'error'
-  cpuPercent: number
-  memUsedMB: number
-  memLimitMB: number
-  ports: string[]
-  uptime: number | null // seconds, null if stopped
-  created: Date
-}
-
 export interface InfraStatus {
   ssh: { enabled: boolean; port: number; connections: number }
   tailscale: { connected: boolean; ip: string; peers: { name: string; ip: string; online: boolean }[] }
@@ -77,51 +64,6 @@ export function getMockModels(): OllamaModel[] {
       id: '5', name: 'gemma2', tag: '2b', fullName: 'google/gemma-2-2b-it',
       sizeGB: 1.6, quantization: 'Q4_K_M', contextWindow: 8192,
       lastUsed: null, status: 'ready', parameters: '2B',
-    },
-  ]
-}
-
-export function getMockContainers(): Container[] {
-  return [
-    {
-      id: 'a1b2', name: 'ollama', image: 'ollama/ollama:latest',
-      status: 'running', cpuPercent: jitter(8, 3), memUsedMB: 4200, memLimitMB: 16000,
-      ports: ['11434:11434'], uptime: 3 * 86400 + 14 * 3600, created: new Date(Date.now() - 4 * 86400 * 1000),
-    },
-    {
-      id: 'c3d4', name: 'open-webui', image: 'ghcr.io/open-webui/open-webui:main',
-      status: 'running', cpuPercent: jitter(2, 1), memUsedMB: 380, memLimitMB: 2000,
-      ports: ['3000:8080'], uptime: 3 * 86400 + 14 * 3600, created: new Date(Date.now() - 4 * 86400 * 1000),
-    },
-    {
-      id: 'e5f6', name: 'n8n', image: 'n8nio/n8n:latest',
-      status: 'running', cpuPercent: jitter(31, 8), memUsedMB: 890, memLimitMB: 4000,
-      ports: ['5678:5678'], uptime: 6 * 3600 + 22 * 60, created: new Date(Date.now() - 7 * 86400 * 1000),
-    },
-    {
-      id: 'g7h8', name: 'portainer', image: 'portainer/portainer-ce:latest',
-      status: 'running', cpuPercent: jitter(0.5, 0.3), memUsedMB: 45, memLimitMB: 512,
-      ports: ['9443:9443', '9000:9000'], uptime: 14 * 86400, created: new Date(Date.now() - 14 * 86400 * 1000),
-    },
-    {
-      id: 'i9j0', name: 'nginx-proxy', image: 'nginxproxy/nginx-proxy:latest',
-      status: 'running', cpuPercent: jitter(0.3, 0.2), memUsedMB: 28, memLimitMB: 256,
-      ports: ['80:80', '443:443'], uptime: 14 * 86400, created: new Date(Date.now() - 14 * 86400 * 1000),
-    },
-    {
-      id: 'k1l2', name: 'searxng', image: 'searxng/searxng:latest',
-      status: 'running', cpuPercent: jitter(1.2, 0.5), memUsedMB: 120, memLimitMB: 1000,
-      ports: ['8888:8080'], uptime: 2 * 86400, created: new Date(Date.now() - 5 * 86400 * 1000),
-    },
-    {
-      id: 'm3n4', name: 'postgres', image: 'postgres:16-alpine',
-      status: 'stopped', cpuPercent: 0, memUsedMB: 0, memLimitMB: 2000,
-      ports: ['5432:5432'], uptime: null, created: new Date(Date.now() - 10 * 86400 * 1000),
-    },
-    {
-      id: 'o5p6', name: 'redis', image: 'redis:7-alpine',
-      status: 'stopped', cpuPercent: 0, memUsedMB: 0, memLimitMB: 512,
-      ports: ['6379:6379'], uptime: null, created: new Date(Date.now() - 10 * 86400 * 1000),
     },
   ]
 }

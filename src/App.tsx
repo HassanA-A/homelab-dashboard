@@ -3,6 +3,7 @@ import AppShell from '@/components/layout/AppShell'
 import OverviewPage from '@/components/pages/OverviewPage'
 import ModelsPage from '@/components/pages/ModelsPage'
 import DockerPage from '@/components/pages/DockerPage'
+import ServicesPage from '@/components/pages/ServicesPage'
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <OverviewPage /> },
+      { path: 'services', element: <ServicesPage /> },
       { path: 'models', element: <ModelsPage /> },
       { path: 'docker', element: <DockerPage /> },
       { path: 'infrastructure', element: <PlaceholderPage title="Infrastructure" /> },

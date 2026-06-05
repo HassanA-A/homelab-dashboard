@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 
 const ROUTE_LABELS: Record<string, string> = {
   '/':               'Overview',
+  '/services':       'Services',
   '/models':         'AI Models',
   '/docker':         'Docker',
   '/infrastructure': 'Infrastructure',

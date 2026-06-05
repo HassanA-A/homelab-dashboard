@@ -1,11 +1,23 @@
 import { useState } from 'react'
-import { useModels, useDeleteModel } from '@/hooks/useMetrics'
+import { useDeleteOllamaModel, useOllamaModels, usePullOllamaModel } from '@/hooks/useOllamaModels'
 import { LoadingSpinner, PageHeader, StatusDot, QuantBadge } from '@/components/ui'
-import { formatBytes, formatContext, timeAgo, type OllamaModel } from '@/data/mock'
+import type { OllamaModel } from '@/services/ollamaApi'
 import { Download, Trash2, MessageSquare, Play, Search, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type SortKey = 'name' | 'sizeGB' | 'contextWindow' | 'lastUsed'
+type SortKey = 'name' | 'size_bytes' | 'context_length' | 'modified_at'
+
+function formatContext(n: number): string {
+  if (!n) return '—'
+  return `${(n / 1024).toFixed(0)}k`
+}
+
+function formatDate(value: string): string {
+  if (!value) return 'Unknown'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString()
+}
 
 function DeleteConfirm({ model, onConfirm, onCancel, isPending }: {
   model: OllamaModel; onConfirm: () => void; onCancel: () => void; isPending: boolean
@@ -15,7 +27,7 @@ function DeleteConfirm({ model, onConfirm, onCancel, isPending }: {
       <div className="card p-5 max-w-sm w-full mx-4 border border-border-strong">
         <h3 className="text-sm font-medium text-text-primary mb-1.5">Delete model?</h3>
         <p className="text-xs text-text-tertiary mb-4">
-          <span className="mono text-text-secondary">{model.name}:{model.tag}</span> ({formatBytes(model.sizeGB)}) will be permanently deleted from disk.
+          <span className="mono text-text-secondary">{model.name}</span> ({model.size_display}) will be permanently deleted from disk.
         </p>
         <div className="flex gap-2 justify-end">
           <button className="btn-ghost text-xs px-3 py-1.5" onClick={onCancel}>Cancel</button>
@@ -34,6 +46,16 @@ function DeleteConfirm({ model, onConfirm, onCancel, isPending }: {
 
 function PullModelModal({ onClose }: { onClose: () => void }) {
   const [value, setValue] = useState('')
+  const pullMutation = usePullOllamaModel()
+
+  function handlePull() {
+    const model = value.trim()
+    if (!model) return
+    pullMutation.mutate(model, {
+      onSuccess: onClose,
+    })
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center animate-fade-in">
       <div className="card p-5 max-w-md w-full mx-4 border border-border-strong">
@@ -43,13 +65,18 @@ function PullModelModal({ onClose }: { onClose: () => void }) {
           autoFocus
           value={value}
           onChange={e => setValue(e.target.value)}
-          placeholder="model:tag"
+          placeholder="llama3.1:8b"
           className="w-full bg-bg-raised border border-border-default rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-muted mono focus:outline-none focus:border-accent-purple mb-4"
         />
+        {pullMutation.isError && (
+          <div className="text-xs text-status-red mb-4">
+            {pullMutation.error instanceof Error ? pullMutation.error.message : 'Failed to pull model.'}
+          </div>
+        )}
         <div className="flex gap-2 justify-end">
           <button className="btn-ghost text-xs" onClick={onClose}>Cancel</button>
-          <button className="btn-primary text-xs" onClick={onClose}>
-            <Download size={12} /> Pull
+          <button className="btn-primary text-xs" onClick={handlePull} disabled={pullMutation.isPending || !value.trim()}>
+            <Download size={12} /> {pullMutation.isPending ? 'Pulling…' : 'Pull'}
           </button>
         </div>
       </div>
@@ -58,28 +85,44 @@ function PullModelModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function ModelsPage() {
-  const { data: models, isLoading } = useModels()
-  const deleteMutation = useDeleteModel()
+  const { data, isLoading, isError, error } = useOllamaModels()
+  const deleteMutation = useDeleteOllamaModel()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [deleteTarget, setDeleteTarget] = useState<OllamaModel | null>(null)
   const [showPull, setShowPull] = useState(false)
 
-  if (isLoading || !models) return <LoadingSpinner className="h-64" />
+  if (isLoading) return <LoadingSpinner className="h-64" />
+
+  if (isError || !data) {
+    return (
+      <div className="p-6 max-w-screen-xl mx-auto animate-fade-in">
+        <div className="card p-5 border-status-red/30">
+          <div className="text-sm font-medium text-status-red">Unable to load Ollama models</div>
+          <div className="text-xs text-text-tertiary mt-1">
+            {error instanceof Error ? error.message : 'Check that Ollama is running on localhost:11434.'}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const models = data.models
 
   const filtered = models
-    .filter(m => `${m.name}:${m.tag} ${m.fullName}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(m => `${m.name} ${m.family} ${m.parameter_size} ${m.quantization} ${m.capabilities.join(' ')}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       let diff = 0
-      if (sortKey === 'name') diff = `${a.name}:${a.tag}`.localeCompare(`${b.name}:${b.tag}`)
-      if (sortKey === 'sizeGB') diff = a.sizeGB - b.sizeGB
-      if (sortKey === 'contextWindow') diff = a.contextWindow - b.contextWindow
-      if (sortKey === 'lastUsed') diff = (a.lastUsed?.getTime() ?? 0) - (b.lastUsed?.getTime() ?? 0)
+      if (sortKey === 'name') diff = a.name.localeCompare(b.name)
+      if (sortKey === 'size_bytes') diff = a.size_bytes - b.size_bytes
+      if (sortKey === 'context_length') diff = a.context_length - b.context_length
+      if (sortKey === 'modified_at') diff = new Date(a.modified_at).getTime() - new Date(b.modified_at).getTime()
       return sortDir === 'asc' ? diff : -diff
     })
 
-  const totalGB = models.reduce((s, m) => s + m.sizeGB, 0)
+  const totalBytes = models.reduce((s, m) => s + m.size_bytes, 0)
+  const totalGB = totalBytes / 1024 / 1024 / 1024
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -98,7 +141,7 @@ export default function ModelsPage() {
       {deleteTarget && (
         <DeleteConfirm
           model={deleteTarget}
-          onConfirm={() => { deleteMutation.mutate(deleteTarget.id); setDeleteTarget(null) }}
+          onConfirm={() => { deleteMutation.mutate(deleteTarget.name); setDeleteTarget(null) }}
           onCancel={() => setDeleteTarget(null)}
           isPending={deleteMutation.isPending}
         />
@@ -136,9 +179,11 @@ export default function ModelsPage() {
               {([
                 ['Model', 'name'],
                 ['Quant', null],
-                ['Size', 'sizeGB'],
-                ['Context', 'contextWindow'],
-                ['Last used', 'lastUsed'],
+                ['Size', 'size_bytes'],
+                ['Context', 'context_length'],
+                ['Modified', 'modified_at'],
+                ['Family', null],
+                ['Capabilities', null],
               ] as [string, SortKey | null][]).map(([label, key]) => (
                 <th
                   key={label}
@@ -156,15 +201,15 @@ export default function ModelsPage() {
           </thead>
           <tbody>
             {filtered.map(model => (
-              <tr key={model.id} className="table-row group">
+              <tr key={model.name} className="table-row group">
                 <td className="table-cell">
                   <div className="flex items-center gap-2">
-                    <StatusDot status={model.status === 'ready' ? 'running' : 'stopped'} />
+                    <StatusDot status="running" />
                     <div>
                       <div className="text-sm font-medium text-text-primary mono">
-                        {model.name}:{model.tag}
+                        {model.name}
                       </div>
-                      <div className="text-xs text-text-muted truncate max-w-[220px]">{model.fullName}</div>
+                      <div className="text-xs text-text-muted truncate max-w-[220px]">{model.parameter_size}</div>
                     </div>
                   </div>
                 </td>
@@ -172,13 +217,25 @@ export default function ModelsPage() {
                   <QuantBadge quant={model.quantization} />
                 </td>
                 <td className="table-cell">
-                  <span className="text-sm text-text-secondary mono">{formatBytes(model.sizeGB)}</span>
+                  <span className="text-sm text-text-secondary mono">{model.size_display}</span>
                 </td>
                 <td className="table-cell">
-                  <span className="text-sm text-text-secondary mono">{formatContext(model.contextWindow)}</span>
+                  <span className="text-sm text-text-secondary mono">{formatContext(model.context_length)}</span>
                 </td>
                 <td className="table-cell">
-                  <span className="text-xs text-text-tertiary">{timeAgo(model.lastUsed)}</span>
+                  <span className="text-xs text-text-tertiary">{formatDate(model.modified_at)}</span>
+                </td>
+                <td className="table-cell">
+                  <span className="text-xs text-text-secondary">{model.family}</span>
+                </td>
+                <td className="table-cell">
+                  <div className="flex flex-wrap gap-1 max-w-[180px]">
+                    {model.capabilities.length > 0
+                      ? model.capabilities.map(capability => (
+                        <span key={capability} className="badge badge-gray">{capability}</span>
+                      ))
+                      : <span className="text-xs text-text-muted">—</span>}
+                  </div>
                 </td>
                 <td className="table-cell">
                   <div className="flex items-center gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -211,16 +268,19 @@ export default function ModelsPage() {
       <div className="card p-4 mt-3">
         <div className="metric-label mb-3">Storage breakdown</div>
         <div className="space-y-2">
+          {models.length === 0 && (
+            <div className="py-3 text-center text-sm text-text-muted">No Ollama models installed.</div>
+          )}
           {models.map(m => (
-            <div key={m.id} className="flex items-center gap-3">
-              <div className="w-28 text-xs text-text-secondary mono truncate">{m.name}:{m.tag}</div>
+            <div key={m.name} className="flex items-center gap-3">
+              <div className="w-28 text-xs text-text-secondary mono truncate">{m.name}</div>
               <div className="flex-1 bg-bg-active rounded-full h-[3px] overflow-hidden">
                 <div
                   className="h-full rounded-full bg-accent-purple transition-all duration-500"
-                  style={{ width: `${(m.sizeGB / totalGB) * 100}%` }}
+                  style={{ width: `${totalBytes > 0 ? (m.size_bytes / totalBytes) * 100 : 0}%` }}
                 />
               </div>
-              <div className="w-14 text-right text-xs text-text-tertiary mono">{formatBytes(m.sizeGB)}</div>
+              <div className="w-14 text-right text-xs text-text-tertiary mono">{m.size_display}</div>
             </div>
           ))}
         </div>

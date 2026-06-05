@@ -41,14 +41,20 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
   )
 }
 
+function formatCapacity(gb: number): string {
+  if (gb >= 1024) return `${(gb / 1024).toFixed(gb >= 10240 ? 0 : 1)} TB`
+  return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`
+}
+
 export default function OverviewPage() {
   const { data: metrics, isLoading, isError, error } = useSystemMetrics()
-  const cpuUsage = metrics?.cpu ?? 0
-  const ramUsage = metrics?.ram ?? 0
-  const diskUsage = metrics?.disk ?? 0
+  const cpuUsage = metrics?.cpu.usage ?? 0
+  const ramUsage = metrics?.ram.usage ?? 0
+  const diskUsage = metrics?.storage.usage ?? 0
+  const gpuUsage = metrics?.gpu.usage ?? 0
   const cpuHistory  = useFakeHistory(cpuUsage || 24)
   const ramHistory  = useFakeHistory(ramUsage || 43)
-  const gpuHistory  = useFakeHistory(0)
+  const gpuHistory  = useFakeHistory(gpuUsage)
   const diskHistory = useFakeHistory(diskUsage || 58)
 
   if (isLoading) return <LoadingSpinner className="h-64" />
@@ -66,17 +72,11 @@ export default function OverviewPage() {
     )
   }
 
-  const gpu = { usage: 0, temp: 0, model: 'Not implemented', vramUsed: 0, vramTotal: 0 }
-  const network = { downloadMbps: 0, uploadMbps: 0, interface: 'Not implemented' }
-  const tailscale = { ip: 'Not implemented', peers: 0, hostname: metrics.hostname }
-  const os = 'Not implemented'
-  const kernelVersion = 'Not implemented'
-
   return (
     <div className="p-6 max-w-screen-xl mx-auto animate-fade-in">
       <PageHeader
         title="Overview"
-        subtitle={`${metrics.hostname} · Last updated just now`}
+        subtitle={`${metrics.info.hostname} · Last updated just now`}
       >
         <button className="btn-primary">
           <Zap size={13} />
@@ -88,39 +88,39 @@ export default function OverviewPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
         <MetricCard
           label="CPU Usage"
-          value={metrics.cpu.toFixed(0)}
+          value={metrics.cpu.usage.toFixed(0)}
           unit="%"
-          sub="Live system metric"
-          progress={metrics.cpu}
-          progressColor={cpuColor(metrics.cpu)}
-          statusLabel={metrics.cpu > 80 ? 'high' : 'healthy'}
-          statusColor={metrics.cpu > 80 ? 'text-status-red' : 'text-status-green'}
+          sub={`${metrics.cpu.model} · ${metrics.cpu.cores} cores / ${metrics.cpu.threads} threads`}
+          progress={metrics.cpu.usage}
+          progressColor={cpuColor(metrics.cpu.usage)}
+          statusLabel={metrics.cpu.usage > 80 ? 'high' : 'healthy'}
+          statusColor={metrics.cpu.usage > 80 ? 'text-status-red' : 'text-status-green'}
         >
           <MiniChart data={cpuHistory} color="#6E56CF" />
         </MetricCard>
 
         <MetricCard
           label="RAM Usage"
-          value={metrics.ram.toFixed(0)}
+          value={metrics.ram.usage.toFixed(0)}
           unit="%"
-          sub="Live system metric"
-          progress={metrics.ram}
-          progressColor={ramColor(metrics.ram)}
-          statusLabel={metrics.ram > 80 ? 'high' : metrics.ram > 70 ? 'moderate' : 'healthy'}
-          statusColor={metrics.ram > 80 ? 'text-status-red' : metrics.ram > 70 ? 'text-status-amber' : 'text-status-green'}
+          sub={`${formatCapacity(metrics.ram.used_gb)} / ${formatCapacity(metrics.ram.total_gb)} used`}
+          progress={metrics.ram.usage}
+          progressColor={ramColor(metrics.ram.usage)}
+          statusLabel={metrics.ram.usage > 80 ? 'high' : metrics.ram.usage > 70 ? 'moderate' : 'healthy'}
+          statusColor={metrics.ram.usage > 80 ? 'text-status-red' : metrics.ram.usage > 70 ? 'text-status-amber' : 'text-status-green'}
         >
           <MiniChart data={ramHistory} color="#F76B15" />
         </MetricCard>
 
         <MetricCard
           label="GPU Usage"
-          value={gpu.usage.toFixed(0)}
+          value={metrics.gpu.usage.toFixed(0)}
           unit="%"
-          sub={`${gpu.model} · VRAM ${gpu.vramUsed.toFixed(1)} / ${gpu.vramTotal} GB`}
-          progress={gpu.usage}
+          sub={`${metrics.gpu.name} · VRAM ${formatCapacity(metrics.gpu.vram_used_gb)} / ${formatCapacity(metrics.gpu.vram_total_gb)}`}
+          progress={metrics.gpu.usage}
           progressColor="bg-status-teal"
-          statusLabel={gpu.usage > 5 ? 'active' : 'idle'}
-          statusColor={gpu.usage > 5 ? 'text-status-teal' : 'text-text-muted'}
+          statusLabel={metrics.gpu.usage > 5 ? 'active' : 'idle'}
+          statusColor={metrics.gpu.usage > 5 ? 'text-status-teal' : 'text-text-muted'}
         >
           <MiniChart data={gpuHistory} color="#5CB8B2" />
         </MetricCard>
@@ -128,11 +128,11 @@ export default function OverviewPage() {
         {/* Disk */}
         <MetricCard
           label="Disk Usage"
-          value={metrics.disk.toFixed(0)}
+          value={metrics.storage.usage.toFixed(0)}
           unit="%"
-          sub="Root filesystem"
-          progress={metrics.disk}
-          progressColor={diskColor(metrics.disk)}
+          sub={`${formatCapacity(metrics.storage.used_gb)} / ${formatCapacity(metrics.storage.total_gb)} used`}
+          progress={metrics.storage.usage}
+          progressColor={diskColor(metrics.storage.usage)}
         >
           <div className="flex items-center gap-4 text-xs text-text-tertiary mt-1">
             <span className="flex items-center gap-1"><span className="text-status-blue">↑</span> R — MB/s</span>
@@ -149,15 +149,15 @@ export default function OverviewPage() {
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-medium text-text-primary font-display tracking-tight leading-none">
-              {network.downloadMbps.toFixed(0)}
+              {metrics.network.download_mbps.toFixed(0)}
             </span>
             <span className="text-lg text-text-tertiary font-display">Mbps</span>
           </div>
           <div className="flex gap-4 text-xs">
-            <span className="text-status-blue">↓ {network.downloadMbps.toFixed(0)} Mbps</span>
-            <span className="text-status-green">↑ {network.uploadMbps.toFixed(0)} Mbps</span>
+            <span className="text-status-blue">↓ {metrics.network.download_mbps.toFixed(1)} Mbps</span>
+            <span className="text-status-green">↑ {metrics.network.upload_mbps.toFixed(1)} Mbps</span>
           </div>
-          <div className="text-xs text-text-muted">{network.interface} · 1 Gbps link</div>
+          <div className="text-xs text-text-muted">{metrics.network.local_ip}</div>
         </div>
 
         {/* Tailscale */}
@@ -167,11 +167,14 @@ export default function OverviewPage() {
             Tailscale
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <StatusBadge status="stopped" label="Not implemented" />
+            <StatusBadge
+              status={metrics.tailscale.connected ? 'synced' : 'stopped'}
+              label={metrics.tailscale.connected ? 'Connected' : 'Disconnected'}
+            />
           </div>
-          <div className="text-xs text-text-secondary mono">{tailscale.ip}</div>
-          <div className="text-xs text-text-tertiary">{tailscale.peers} peers · Phase 1 only</div>
-          <div className="text-xs text-text-tertiary">{tailscale.hostname}.tailnet</div>
+          <div className="text-xs text-text-secondary mono">{metrics.tailscale.tailscale_ip}</div>
+          <div className="text-xs text-text-tertiary">{metrics.tailscale.peer_count} peers</div>
+          <div className="text-xs text-text-tertiary">{metrics.info.hostname}.tailnet</div>
         </div>
       </div>
 
@@ -182,11 +185,15 @@ export default function OverviewPage() {
             <Activity size={11} />
             System info
           </div>
-          <InfoRow label="Hostname"      value={metrics.hostname}      mono />
-          <InfoRow label="OS"            value={os}                 />
-          <InfoRow label="Kernel"        value={kernelVersion}  mono />
-          <InfoRow label="Uptime"        value={metrics.uptime} />
-          <InfoRow label="Architecture"  value="x86_64"             />
+          <InfoRow label="Hostname"      value={metrics.info.hostname}      mono />
+          <InfoRow label="OS"            value={metrics.info.os}                 />
+          <InfoRow label="Kernel"        value={metrics.info.kernel}  mono />
+          <InfoRow label="Uptime"        value={metrics.info.uptime} />
+          <InfoRow label="Architecture"  value={metrics.info.architecture}             />
+          <InfoRow label="CPU Model"     value={metrics.info.cpu_model} />
+          <InfoRow label="Total RAM"     value={formatCapacity(metrics.info.total_ram_gb)} />
+          <InfoRow label="GPU Model"     value={metrics.info.gpu_model} />
+          <InfoRow label="Storage Total" value={formatCapacity(metrics.info.storage_total_gb)} />
         </div>
 
         <div className="card p-4">
@@ -197,7 +204,7 @@ export default function OverviewPage() {
           <div className="space-y-3">
             {[
               { label: 'CPU',  temp: 0,         max: 95 },
-              { label: 'GPU',  temp: gpu.temp,  max: 90 },
+              { label: 'GPU',  temp: metrics.gpu.temperature,  max: 90 },
               { label: 'Disk', temp: 38,         max: 70 },
             ].map(({ label, temp, max }) => {
               const pct = (temp / max) * 100

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useContainers, useToggleContainer } from '@/hooks/useMetrics'
-import { LoadingSpinner, PageHeader, StatusBadge } from '@/components/ui'
-import { formatUptime, type Container } from '@/data/mock'
+import { useDockerAction, useDockerContainers, useDockerLogs } from '@/hooks/useDocker'
+import { LoadingSpinner, PageHeader } from '@/components/ui'
+import type { DockerContainerRow } from '@/services/dockerApi'
 import { Play, Square, RefreshCw, FileText, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -39,10 +39,63 @@ function PortBadges({ ports }: { ports: string[] }) {
   )
 }
 
-function ContainerRow({ container }: { container: Container }) {
-  const toggle = useToggleContainer()
+function statusDotClass(status: string) {
+  if (status === 'running') return 'bg-status-green shadow-glow-green'
+  if (status === 'restarting') return 'bg-status-amber animate-pulse-slow'
+  if (status === 'exited' || status === 'dead') return 'bg-status-red'
+  return 'bg-text-muted'
+}
+
+function statusBadgeClass(status: string) {
+  if (status === 'running') return 'badge-green'
+  if (status === 'restarting') return 'badge-amber'
+  if (status === 'exited' || status === 'dead') return 'badge-red'
+  return 'badge-gray'
+}
+
+function LogsModal({ container, onClose }: { container: DockerContainerRow; onClose: () => void }) {
+  const { data, isLoading, isError, error } = useDockerLogs(container.id)
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center animate-fade-in">
+      <div className="card p-5 max-w-3xl w-full mx-4 border border-border-strong">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-medium text-text-primary">Container logs</h3>
+            <p className="text-xs text-text-tertiary mono mt-1">{container.name}</p>
+          </div>
+          <button className="btn-ghost text-xs px-3 py-1.5" onClick={onClose}>Close</button>
+        </div>
+
+        <div className="bg-bg-base border border-border-default rounded-md h-[420px] overflow-y-auto p-3">
+          {isLoading && <LoadingSpinner className="h-full" />}
+          {isError && (
+            <div className="text-xs text-status-red">
+              {error instanceof Error ? error.message : 'Unable to load logs.'}
+            </div>
+          )}
+          {data && (
+            <pre className="text-xs text-text-secondary mono whitespace-pre-wrap leading-relaxed">
+              {data.logs.length > 0 ? data.logs.join('\n') : 'No logs available.'}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ContainerRow({
+  container,
+  onLogs,
+}: {
+  container: DockerContainerRow
+  onLogs: (container: DockerContainerRow) => void
+}) {
+  const dockerAction = useDockerAction()
   const isRunning = container.status === 'running'
   const isRestarting = container.status === 'restarting'
+  const isPending = dockerAction.isPending
 
   return (
     <div className={cn(
@@ -53,8 +106,7 @@ function ContainerRow({ container }: { container: Container }) {
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className={cn(
           'w-2 h-2 rounded-full flex-shrink-0',
-          isRunning ? 'bg-status-green shadow-glow-green' : 'bg-text-muted',
-          isRestarting && 'bg-status-amber animate-pulse-slow'
+          statusDotClass(container.status)
         )} />
         <div className="min-w-0">
           <div className="text-sm font-medium text-text-primary mono">{container.name}</div>
@@ -62,24 +114,24 @@ function ContainerRow({ container }: { container: Container }) {
         </div>
       </div>
 
+      {/* Status */}
+      <div className="hidden md:block min-w-[80px]">
+        <span className={cn('badge capitalize', statusBadgeClass(container.status))}>{container.status}</span>
+      </div>
+
       {/* CPU */}
       <div className="hidden sm:block">
-        <CpuBar pct={container.cpuPercent} />
+        <CpuBar pct={container.cpu_percent} />
       </div>
 
       {/* Memory */}
       <div className="hidden lg:block text-xs mono text-text-tertiary min-w-[80px]">
-        {isRunning ? `${(container.memUsedMB / 1024).toFixed(1)} GB` : '—'}
+        {isRunning ? `${(container.memory_used_mb / 1024).toFixed(1)} GB` : '—'}
       </div>
 
       {/* Ports */}
       <div className="hidden md:block min-w-[100px]">
         <PortBadges ports={container.ports} />
-      </div>
-
-      {/* Uptime */}
-      <div className="text-xs text-text-tertiary min-w-[60px] text-right">
-        {container.uptime ? formatUptime(container.uptime) : 'Stopped'}
       </div>
 
       {/* Actions */}
@@ -88,7 +140,8 @@ function ContainerRow({ container }: { container: Container }) {
           <button
             className="icon-btn"
             title="Stop"
-            onClick={() => toggle.mutate({ id: container.id, action: 'stop' })}
+            disabled={isPending}
+            onClick={() => dockerAction.mutate({ containerId: container.id, action: 'stop' })}
           >
             <Square size={11} />
           </button>
@@ -96,7 +149,8 @@ function ContainerRow({ container }: { container: Container }) {
           <button
             className="icon-btn-success"
             title="Start"
-            onClick={() => toggle.mutate({ id: container.id, action: 'start' })}
+            disabled={isPending}
+            onClick={() => dockerAction.mutate({ containerId: container.id, action: 'start' })}
           >
             <Play size={11} />
           </button>
@@ -104,11 +158,12 @@ function ContainerRow({ container }: { container: Container }) {
         <button
           className="icon-btn"
           title="Restart"
-          onClick={() => toggle.mutate({ id: container.id, action: 'restart' })}
+          disabled={isPending}
+          onClick={() => dockerAction.mutate({ containerId: container.id, action: 'restart' })}
         >
-          <RefreshCw size={11} className={toggle.isPending ? 'animate-spin' : ''} />
+          <RefreshCw size={11} className={isPending || isRestarting ? 'animate-spin' : ''} />
         </button>
-        <button className="icon-btn" title="Logs">
+        <button className="icon-btn" title="Logs" onClick={() => onLogs(container)}>
           <FileText size={11} />
         </button>
       </div>
@@ -117,29 +172,45 @@ function ContainerRow({ container }: { container: Container }) {
 }
 
 export default function DockerPage() {
-  const { data: containers, isLoading } = useContainers()
+  const { data: containers, isLoading, isError, error, refetch, isFetching } = useDockerContainers()
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
+  const [logsTarget, setLogsTarget] = useState<DockerContainerRow | null>(null)
 
-  if (isLoading || !containers) return <LoadingSpinner className="h-64" />
+  if (isLoading) return <LoadingSpinner className="h-64" />
+
+  if (isError || !containers) {
+    return (
+      <div className="p-6 max-w-screen-xl mx-auto animate-fade-in">
+        <div className="card p-5 border-status-red/30">
+          <div className="text-sm font-medium text-status-red">Unable to load Docker containers</div>
+          <div className="text-xs text-text-tertiary mt-1">
+            {error instanceof Error ? error.message : 'Check that Docker is running and the backend can access the Docker socket.'}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const running = containers.filter(c => c.status === 'running')
-  const stopped = containers.filter(c => c.status === 'stopped')
-  const totalCpu = running.reduce((s, c) => s + c.cpuPercent, 0)
-  const totalMem = running.reduce((s, c) => s + c.memUsedMB, 0)
+  const stopped = containers.filter(c => c.status === 'stopped' || c.status === 'exited')
+  const totalCpu = running.reduce((s, c) => s + c.cpu_percent, 0)
+  const totalMem = running.reduce((s, c) => s + c.memory_used_mb, 0)
 
   const filtered = containers
-    .filter(c => filter === 'all' ? true : filter === 'running' ? c.status === 'running' : c.status === 'stopped')
+    .filter(c => filter === 'all' ? true : filter === 'running' ? c.status === 'running' : c.status === 'stopped' || c.status === 'exited')
     .filter(c => search === '' || `${c.name} ${c.image}`.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="p-6 max-w-screen-xl mx-auto animate-fade-in">
+      {logsTarget && <LogsModal container={logsTarget} onClose={() => setLogsTarget(null)} />}
+
       <PageHeader
         title="Docker"
-        subtitle={`Docker Engine 24.0.7 · ${containers.length} containers`}
+        subtitle={`${containers.length} containers · Auto-refresh every 5s`}
       >
-        <button className="btn-ghost text-xs">
-          <RefreshCw size={12} /> Refresh
+        <button className="btn-ghost text-xs" onClick={() => refetch()}>
+          <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} /> Refresh
         </button>
         <button className="btn-primary text-xs">
           <Plus size={12} /> Run Container
@@ -194,14 +265,14 @@ export default function DockerPage() {
         {/* Header */}
         <div className="flex items-center gap-4 px-4 py-2 border-b border-border-subtle">
           <div className="flex-1 table-head pl-5">Container</div>
+          <div className="hidden md:block table-head min-w-[80px]">Status</div>
           <div className="hidden sm:block table-head min-w-[120px]">CPU</div>
           <div className="hidden lg:block table-head min-w-[80px]">Memory</div>
           <div className="hidden md:block table-head min-w-[100px]">Ports</div>
-          <div className="table-head min-w-[60px] text-right">Uptime</div>
           <div className="table-head w-[88px] text-right">Actions</div>
         </div>
 
-        {filtered.map(c => <ContainerRow key={c.id} container={c} />)}
+        {filtered.map(c => <ContainerRow key={c.id} container={c} onLogs={setLogsTarget} />)}
 
         {filtered.length === 0 && (
           <div className="py-10 text-center text-sm text-text-muted">No containers match your filter.</div>

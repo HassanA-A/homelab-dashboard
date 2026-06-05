@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Brain, Package, Server, Bot,
+  LayoutDashboard, Brain, Package, Server, Bot, PanelsTopLeft,
   ScrollText, Settings, ChevronDown, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { to: '/',              icon: LayoutDashboard, label: 'Overview' },
+  { to: '/services',      icon: PanelsTopLeft,   label: 'Services',       dot: 'green' },
   { to: '/models',        icon: Brain,           label: 'AI Models',      badge: '5' },
   { to: '/docker',        icon: Package,         label: 'Docker',         dot: 'green' },
   { to: '/infrastructure',icon: Server,          label: 'Infrastructure' },
