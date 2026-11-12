@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0b0d;
+  --color-surface: #121418;
+  --color-surface-2: #1a1d23;
+  --color-surface-3: #23272f;
+  --color-line: #262a32;
+  --color-fg: #eceef2;
+  --color-muted: #8b919c;
+  --color-faint: #5b616b;
+  --color-accent: #34d399;
+  --color-accent-strong: #10b981;
+  --color-protein: #60a5fa;
+  --color-carbs: #fbbf24;
+  --color-fat: #c084fc;
+  --color-danger: #f87171;
+  --color-warn: #fbbf24;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 1rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers that change shouldn't jiggle */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(2px);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
